@@ -30,7 +30,7 @@ export const checkWinner = (primaryPlayerMove, secondaryPlayerMove) => {
 		} else if (secondaryPlayerRule.beat === primaryPlayerMove) {
 			return 'secondary';
 		} else {
-			return 'It\'s a tie';
+			return 'draw';
 		}
 	} else {
 		return 'Invalid moves';

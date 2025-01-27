@@ -27,11 +27,12 @@ function createRoom() {
 	rooms[roomId] = {
 		players: [],
 		gameState: {
-			status: 'waiting', // Статус игры: waiting, finished
+			// status: 'waiting', // Статус игры: waiting, finished
 			primaryPlayerMove: null,
 			secondaryPlayerMove: null,
 			primePlayerScore: 0,
 			secondaryPlayerScore: 0,
+			winner: null, // primary secondary tie
 		},
 	};
 	return roomId;
@@ -83,7 +84,7 @@ io.on('connection', (socket) => {
 		// console.log(rooms);
 		const room = rooms[roomIdLoc];
 		if (!room) return;
-		console.log(move);
+
 		if (move.action.currentPlayer === 'primary') {
 			rooms[roomIdLoc].gameState.primaryPlayerMove = move.action.action;
 		}
@@ -94,19 +95,28 @@ io.on('connection', (socket) => {
 
 		if (rooms[roomIdLoc].gameState.primaryPlayerMove && rooms[roomIdLoc].gameState.secondaryPlayerMove) {
 			const winner = checkWinner(rooms[roomIdLoc].gameState.primaryPlayerMove, rooms[roomIdLoc].gameState.secondaryPlayerMove);
-			if (winner === 'primary') {
-				console.log(1);
-				rooms[roomIdLoc].gameState.primePlayerScore++;
-			} else if (winner === 'secondary') {
-				console.log(2);
-				rooms[roomIdLoc].gameState.secondaryPlayerScore++;
+			switch (winner) {
+				case 'primary':
+					rooms[roomIdLoc].gameState.winner = 'primary';
+					rooms[roomIdLoc].gameState.primePlayerScore++;
+					break;
+				case 'secondary':
+					rooms[roomIdLoc].gameState.winner = 'secondary';
+					rooms[roomIdLoc].gameState.secondaryPlayerScore++;
+					break;
+				case 'draw':
+					rooms[roomIdLoc].gameState.winner = 'draw';
+					break;
+				default:
+					break;
 			}
+
+			io.to(roomIdLoc).emit('updateState', room.gameState); // Шлем обновленный стейт
 
 			rooms[roomIdLoc].gameState.primaryPlayerMove = null;
 			rooms[roomIdLoc].gameState.secondaryPlayerMove = null;
 		}
 
-		io.to(roomIdLoc).emit('updateState', room.gameState); // Шлем обновленный стейт
 	});
 
 	// Обработка отключения игрока
@@ -118,6 +128,7 @@ io.on('connection', (socket) => {
 
 				// Уведомляем оставшихся игроков
 				io.to(roomId).emit('roomUpdate', room);
+				io.to(roomId).emit('userDisconnect', room);
 
 				// Удаляем комнату, если игроков не осталось
 				if (room.players.length === 0) {
